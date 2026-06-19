@@ -130,8 +130,14 @@ export class ZatcaLite {
 
       const signed = await this.signInvoice({ invoice, config })
       // Run consumers such as the official local SDK against the final signed
-      // XML before any reporting/clearance request leaves the process.
-      await this.options.validators?.signedInvoice?.validate(signed.signedXml)
+      // XML before any reporting/clearance request leaves the process. We pass
+      // the chain hash alongside so chain-aware validators (e.g. the official
+      // PIH file check) can verify the embedded PIH against the right expected
+      // value rather than whatever stale value happens to be on disk.
+      await this.options.validators?.signedInvoice?.validate({
+        signedXml: signed.signedXml,
+        previousInvoiceHash: previousHash,
+      })
       const submission =
         input.submissionType === 'clearance'
           ? await this.clearInvoice({ invoice, config, signedXml: signed.signedXml })
