@@ -69,6 +69,14 @@ export interface ZatcaInvoiceItem {
   taxRate: number
   taxAmount: number
   totalAmount: number
+  /**
+   * Optional ZATCA tax category for the line. Allowed values are `S`
+   * (Standard — 5% or 15%), `Z` (Zero-rated), `E` (Exempt), and `O`
+   * (Out-of-scope). When omitted, the generator infers from the rate:
+   * a non-zero rate is treated as Standard and a zero rate is treated as
+   * Zero-rated.
+   */
+  taxCategory?: 'S' | 'Z' | 'E' | 'O'
 }
 
 export interface ZatcaInvoiceData {
@@ -234,6 +242,12 @@ export interface BuildInvoiceInput {
     taxAmount?: number
     totalAmount: number
     totalIncludesTax?: boolean
+    /**
+     * Optional ZATCA tax category (`S`, `Z`, `E`, `O`). When omitted the
+     * generator infers from the rate: a non-zero rate is treated as `S` and
+     * a zero rate is treated as `Z`.
+     */
+    taxCategory?: 'S' | 'Z' | 'E' | 'O'
   }>
   previousInvoiceHash?: string
   invoiceType?: ZatcaInvoiceType
