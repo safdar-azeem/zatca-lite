@@ -12,7 +12,7 @@ import {
   ZatcaEnv,
   ZatcaLogger,
 } from '../types'
-import { repairCertificate } from '../utils/certificate'
+import { assertCertificateMatchesPrivateKey, repairCertificate } from '../utils/certificate'
 import { ZatcaLiteError } from '../errors/ZatcaLiteError'
 
 const {
@@ -93,7 +93,9 @@ export class OnboardingService {
     const keyPath = path.join(tempDir, `zatca_lite_key_${Date.now()}.pem`)
 
     try {
-      fs.writeFileSync(certPath, repairCertificate(input.csid))
+      const certificate = repairCertificate(input.csid)
+      assertCertificateMatchesPrivateKey(certificate, input.privateKey)
+      fs.writeFileSync(certPath, certificate)
       fs.writeFileSync(keyPath, input.privateKey.trim())
 
       const zatcaManager = new ZatcaManager({
