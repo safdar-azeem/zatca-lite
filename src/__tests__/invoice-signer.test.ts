@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import crypto from 'crypto'
 import fs from 'fs'
 import { createZatcaLite } from '../client/ZatcaLite'
@@ -6,7 +6,7 @@ import { buildZatcaInvoice } from '../mappers/canonical'
 import { InvoiceSigner } from '../invoice/InvoiceSigner'
 import { InvoiceGenerator } from '../invoice/InvoiceGenerator'
 import { stripRootIdAttribute } from '../utils/xml-sanitizer'
-import { repairCertificate } from '../utils/certificate'
+import { getCertificateMetadata, repairCertificate } from '../utils/certificate'
 
 // Self-signed ECDSA cert (secp256k1) so the @khaledhajsalem/zatca-node signer
 // can compute a valid enveloped signature without an external SDK install.
@@ -175,6 +175,86 @@ describe('InvoiceSigner (signed XML passes ZATCA sanity checks)', () => {
     expect(signed.invoiceHash.length).toBeGreaterThan(20)
     expect(signed.qrCode).toBeTruthy()
     expect(signed.qrCode.length).toBeGreaterThan(20)
+  })
+
+  it('embeds issuer and serial metadata from the exact signing certificate', async () => {
+    const zatca = createZatcaLite()
+    const invoice = buildZatcaInvoice({
+      invoiceNumber: 'INV-SIGN-X509',
+      uuid: '8d487816-70b8-4ade-a618-9d620b7381a4',
+      invoiceCounter: 6,
+      issueDate: new Date('2026-06-18T23:22:56.796Z'),
+      seller,
+      buyer: walkInBuyer,
+      items: standardItems,
+      invoiceSubtype: '0200000',
+      invoiceType: '388',
+    })
+    const metadata = getCertificateMetadata(TEST_CERT_PEM)
+    const signed = await zatca.signInvoice({ invoice, config })
+
+    expect(signed.signedXml).toContain(
+      `<ds:X509IssuerName>${metadata.issuerName}</ds:X509IssuerName>`
+    )
+    expect(signed.signedXml).toContain(
+      `<ds:X509SerialNumber>${metadata.serialNumber}</ds:X509SerialNumber>`
+    )
+    expect(signed.signedXml).toContain(metadata.certificateBody)
+  })
+
+  it('validates the final signed XML before reporting and persistence', async () => {
+    const events: string[] = []
+    const signedXml = '<Invoice><ds:X509Certificate>certificate</ds:X509Certificate></Invoice>'
+    const invoice = buildZatcaInvoice({
+      invoiceNumber: 'INV-VALIDATION-ORDER',
+      uuid: '8d487816-70b8-4ade-a618-9d620b7381a5',
+      invoiceCounter: 7,
+      issueDate: new Date('2026-06-18T23:22:56.796Z'),
+      seller,
+      buyer: walkInBuyer,
+      items: standardItems,
+      invoiceSubtype: '0200000',
+      invoiceType: '388',
+    })
+    const zatca = createZatcaLite({
+      validators: {
+        signedInvoice: {
+          validate: vi.fn(async (xml) => {
+            expect(xml).toBe(signedXml)
+            events.push('validate')
+          }),
+        },
+      },
+      stores: {
+        invoiceStateStore: {
+          getPreviousHash: vi.fn().mockResolvedValue(null),
+          getNextInvoiceCounter: vi.fn().mockResolvedValue(7),
+          saveSubmission: vi.fn(async () => {
+            events.push('save')
+          }),
+        },
+      },
+    })
+    vi.spyOn(zatca, 'signInvoice').mockResolvedValue({
+      invoice,
+      unsignedXml: '<Invoice/>',
+      signedXml,
+      invoiceHash: 'hash',
+      qrCode: 'qr',
+    })
+    vi.spyOn(zatca, 'reportInvoice').mockImplementation(async () => {
+      events.push('report')
+      return { requestId: 'request', zatcaStatus: 'REPORTED', zatcaErrors: [] }
+    })
+
+    await zatca.processInvoice({
+      tenantId: 'tenant',
+      invoiceId: 'invoice',
+      invoice,
+      config,
+      submissionType: 'reporting',
+    })
+    expect(events).toEqual(['validate', 'report', 'save'])
   })
 
   it('always strips the root Id attribute — even if upstream signing injects one', () => {
