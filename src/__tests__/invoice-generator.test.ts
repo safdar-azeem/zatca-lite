@@ -261,6 +261,8 @@ describe('InvoiceGenerator', () => {
       invoiceSubtype: '0200000',
       invoiceType: '381',
     })
-    expect(() => generator.generateXml(invoice)).toThrow(/Credit notes require the original invoice/)
+    expect(() => generator.generateXml(invoice)).toThrow(
+      /Credit notes require the original invoice/
+    )
   })
 })
