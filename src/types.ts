@@ -159,11 +159,7 @@ export interface ZatcaConfigStore {
 export interface InvoiceStateStore {
   getPreviousHash(tenantId: string): Promise<string | null>
   getNextInvoiceCounter?(tenantId: string, invoiceId: string): Promise<string | number>
-  saveSubmission(
-    tenantId: string,
-    invoiceId: string,
-    result: ZatcaSubmissionResult
-  ): Promise<void>
+  saveSubmission(tenantId: string, invoiceId: string, result: ZatcaSubmissionResult): Promise<void>
 }
 
 export interface LockProvider {
