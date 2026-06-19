@@ -1,6 +1,6 @@
 {
   "name": "zatca-lite",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Database-agnostic ZATCA Phase 2 onboarding, signing, QR, reporting, and clearance toolkit for Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,6 +16,7 @@
     "build": "yarn clean && node -e \"require('child_process').execFileSync(process.execPath, [require.resolve('typescript/lib/tsc'), '-p', 'tsconfig.json'], { stdio: 'inherit' })\"",
     "typecheck": "node -e \"require('child_process').execFileSync(process.execPath, [require.resolve('typescript/lib/tsc'), '-p', 'tsconfig.json', '--noEmit'], { stdio: 'inherit' })\"",
     "validate:official-sdk": "yarn build && node scripts/validate-official-sdk.js",
+    "test": "vitest run",
     "release:patch": "yarn typecheck && yarn build && npm version patch --no-git-tag-version && npm publish --tag alpha"
   },
   "dependencies": {
@@ -24,7 +25,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18"
