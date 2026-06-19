@@ -95,7 +95,15 @@ describe('buildZatcaInvoice canonical mapper', () => {
       seller,
       buyer: { ...walkInBuyer, taxNumber: '300000000000003' },
       items: [
-        { name: 'Item', quantity: 1, unitPrice: 100, taxRate: 15, taxAmount: 15, totalAmount: 115, totalIncludesTax: true },
+        {
+          name: 'Item',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 15,
+          taxAmount: 15,
+          totalAmount: 115,
+          totalIncludesTax: true,
+        },
       ],
       invoiceType: '388',
     })
@@ -106,7 +114,15 @@ describe('buildZatcaInvoice canonical mapper', () => {
       seller,
       buyer: walkInBuyer,
       items: [
-        { name: 'Item', quantity: 1, unitPrice: 100, taxRate: 15, taxAmount: 15, totalAmount: 115, totalIncludesTax: true },
+        {
+          name: 'Item',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 15,
+          taxAmount: 15,
+          totalAmount: 115,
+          totalIncludesTax: true,
+        },
       ],
       invoiceType: '388',
     })
@@ -119,7 +135,15 @@ describe('buildZatcaInvoice canonical mapper', () => {
       seller,
       buyer: walkInBuyer,
       items: [
-        { name: 'Item', quantity: 1, unitPrice: 100, taxRate: 15, taxAmount: 15, totalAmount: 115, totalIncludesTax: true },
+        {
+          name: 'Item',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 15,
+          taxAmount: 15,
+          totalAmount: 115,
+          totalIncludesTax: true,
+        },
       ],
       invoiceSubtype: '0200000',
       invoiceType: '388',
@@ -133,7 +157,15 @@ describe('buildZatcaInvoice canonical mapper', () => {
       seller,
       buyer: { ...walkInBuyer, taxNumber: '300000000000003' },
       items: [
-        { name: 'Return', quantity: 1, unitPrice: 100, taxRate: 15, taxAmount: 15, totalAmount: 115, totalIncludesTax: true },
+        {
+          name: 'Return',
+          quantity: 1,
+          unitPrice: 100,
+          taxRate: 15,
+          taxAmount: 15,
+          totalAmount: 115,
+          totalIncludesTax: true,
+        },
       ],
       invoiceType: '381',
       originalInvoiceNumber: 'INV-ORIG',
