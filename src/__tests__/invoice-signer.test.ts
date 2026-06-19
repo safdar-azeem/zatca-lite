@@ -156,6 +156,44 @@ describe('InvoiceSigner (signed XML passes ZATCA sanity checks)', () => {
     expect(signed.signedXml).toContain('<cbc:ID>INV-SIGN-PRESERVE</cbc:ID>')
   })
 
+  it('places crypto bits at ZATCA-spec TLV tags 8/9/10/11 (not the SDK\u2019s 6/7/8/9)', async () => {
+    const zatca = createZatcaLite()
+    const invoice = buildZatcaInvoice({
+      invoiceNumber: 'INV-SIGN-QR-TAGS',
+      uuid: '8d487816-70b8-4ade-a618-9d620b7381a2',
+      invoiceCounter: 4,
+      issueDate: new Date('2026-06-18T23:22:56.796Z'),
+      seller,
+      buyer: walkInBuyer,
+      items: standardItems,
+      invoiceSubtype: '0200000',
+      invoiceType: '388',
+    })
+
+    const signed = await zatca.signInvoice({ invoice, config })
+    const buf = Buffer.from(signed.qrCode, 'base64')
+    const tags: number[] = []
+    let offset = 0
+    while (offset + 2 <= buf.length) {
+      tags.push(buf[offset])
+      const len = buf[offset + 1]
+      const next = offset + 2 + len
+      if (next > buf.length) break
+      offset = next
+    }
+
+    // Walk-in customer → simplified/0200000 → sandbox builds tags 1-9 only
+    // (no public key / cert signature). The point of this test is that the
+    // hash and ECDSA signature land at tags 8 and 9 — the positions the
+    // official ZATCA E-Invoicing app expects.
+    expect(tags.slice(0, 5)).toEqual([1, 2, 3, 4, 5])
+    expect(tags).toContain(8) // invoice hash
+    expect(tags).toContain(9) // ECDSA signature
+    // The SDK used to emit these at 6 and 7 — must not regress.
+    expect(tags).not.toContain(6)
+    expect(tags).not.toContain(7)
+  })
+
   it('produces a hash and QR code from the signed XML', async () => {
     const zatca = createZatcaLite()
     const invoice = buildZatcaInvoice({
@@ -219,7 +257,7 @@ describe('InvoiceSigner (signed XML passes ZATCA sanity checks)', () => {
     const zatca = createZatcaLite({
       validators: {
         signedInvoice: {
-          validate: vi.fn(async (xml) => {
+          validate: vi.fn(async ({ signedXml: xml }) => {
             expect(xml).toBe(signedXml)
             events.push('validate')
           }),
