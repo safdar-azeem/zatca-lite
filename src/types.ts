@@ -177,7 +177,7 @@ export interface ZatcaLiteStores {
 }
 
 export interface SignedInvoiceValidator {
-  validate(signedXml: string): Promise<void>
+  validate(input: { signedXml: string; previousInvoiceHash?: string }): Promise<void>
 }
 
 export interface ZatcaLiteValidators {
