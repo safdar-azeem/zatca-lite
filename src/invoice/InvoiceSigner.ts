@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { ZatcaInvoiceData } from '../types'
 import { ZatcaLiteError } from '../errors/ZatcaLiteError'
 import { repairCertificate } from '../utils/certificate'
+import { stripRootIdAttribute } from '../utils/xml-sanitizer'
 
 const { Certificate, InvoiceExtension, InvoiceSigner: SdkInvoiceSigner } = require(
   '@khaledhajsalem/zatca-node'
@@ -41,8 +42,15 @@ export class InvoiceSigner {
         ''
       )
       const signer = SdkInvoiceSigner.signInvoice(input.xml, certificate)
+      // Some upstream signing libraries inject a root-level `Id="..."` attribute
+      // on the `<Invoice>` / `<CreditNote>` element so the enveloped signature
+      // can reference it. ZATCA's UBL 2.1 schema rejects that attribute, so we
+      // always strip it here — every consumer of `signWithMetadata` then gets a
+      // UBL-compliant signed XML by construction. The local SDK validator and
+      // the ZATCA gateway both pass through the sanitized version.
+      const signedXml = stripRootIdAttribute(signer.getXML())
       return {
-        signedXml: signer.getXML(),
+        signedXml,
         invoiceHash: signer.getHash(),
         qrCode: signer.getQRCode(),
       }
