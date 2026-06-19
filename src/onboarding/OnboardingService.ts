@@ -58,7 +58,11 @@ export class OnboardingService {
         requestId: result.getRequestId(),
       }
     } catch (error) {
-      throw this.wrapSdkError('COMPLIANCE_CSID_FAILED', 'ZATCA compliance CSID request failed', error)
+      throw this.wrapSdkError(
+        'COMPLIANCE_CSID_FAILED',
+        'ZATCA compliance CSID request failed',
+        error
+      )
     }
   }
 
@@ -82,7 +86,11 @@ export class OnboardingService {
         requestId: result.getRequestId(),
       }
     } catch (error) {
-      throw this.wrapSdkError('PRODUCTION_CSID_FAILED', 'ZATCA production CSID request failed', error)
+      throw this.wrapSdkError(
+        'PRODUCTION_CSID_FAILED',
+        'ZATCA production CSID request failed',
+        error
+      )
     }
   }
 
@@ -162,13 +170,23 @@ export class OnboardingService {
         if (testCase.doc === 'invoice') {
           invoice.taxInvoice()
         } else if (testCase.doc === 'credit') {
-          invoice.creditNote().addBillingReference({ id: originalInvoiceNumber, uuid: originalInvoiceUuid })
+          invoice
+            .creditNote()
+            .addBillingReference({ id: originalInvoiceNumber, uuid: originalInvoiceUuid })
         } else {
-          invoice.debitNote().addBillingReference({ id: originalInvoiceNumber, uuid: originalInvoiceUuid })
+          invoice
+            .debitNote()
+            .addBillingReference({ id: originalInvoiceNumber, uuid: originalInvoiceUuid })
         }
 
         const line = new InvoiceLineData()
-        line.setId(1).setItemName('Compliance Item').setQuantity(1).setUnitPrice(100).setTaxPercent(15).calculateTotals()
+        line
+          .setId(1)
+          .setItemName('Compliance Item')
+          .setQuantity(1)
+          .setUnitPrice(100)
+          .setTaxPercent(15)
+          .calculateTotals()
         invoice.addLine(line).calculateTotals()
 
         this.logger?.info?.('Submitting ZATCA compliance invoice', testCase)
@@ -230,6 +248,10 @@ export class OnboardingService {
   private wrapSdkError(code: string, message: string, error: unknown): ZatcaLiteError {
     const sdkError = error as Error & { getContext?: () => unknown }
     const context = sdkError.getContext ? ` ${JSON.stringify(sdkError.getContext())}` : ''
-    return new ZatcaLiteError(code, `${message}: ${sdkError.message || String(error)}${context}`, error)
+    return new ZatcaLiteError(
+      code,
+      `${message}: ${sdkError.message || String(error)}${context}`,
+      error
+    )
   }
 }
