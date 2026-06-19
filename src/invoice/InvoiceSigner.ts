@@ -6,6 +6,7 @@ import {
   getCertificateMetadata,
 } from '../utils/certificate'
 import { stripRootIdAttribute } from '../utils/xml-sanitizer'
+import { rewriteZatcaQrTagNumbers } from '../qr/QrTagRewriter'
 
 const { Certificate, InvoiceExtension, InvoiceSigner: SdkInvoiceSigner } = require(
   '@khaledhajsalem/zatca-node'
@@ -59,10 +60,14 @@ export class InvoiceSigner {
       // UBL-compliant signed XML by construction. The local SDK validator and
       // the ZATCA gateway both pass through the sanitized version.
       const signedXml = stripRootIdAttribute(signer.getXML())
+      // The upstream signer emits the crypto bits at TLV tags 6/7/8/9; the
+      // ZATCA spec places them at 8/9/10/11. Rewrite the tag bytes here so the
+      // stored qrCode scans correctly with the official ZATCA E-Invoicing app.
+      const qrCode = rewriteZatcaQrTagNumbers(signer.getQRCode())
       return {
         signedXml,
         invoiceHash: signer.getHash(),
-        qrCode: signer.getQRCode(),
+        qrCode,
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
