@@ -1,7 +1,10 @@
 import crypto from 'crypto'
 import { ZatcaInvoiceData } from '../types'
 import { ZatcaLiteError } from '../errors/ZatcaLiteError'
-import { repairCertificate } from '../utils/certificate'
+import {
+  assertCertificateMatchesPrivateKey,
+  getCertificateMetadata,
+} from '../utils/certificate'
 import { stripRootIdAttribute } from '../utils/xml-sanitizer'
 
 const { Certificate, InvoiceExtension, InvoiceSigner: SdkInvoiceSigner } = require(
@@ -36,11 +39,18 @@ export class InvoiceSigner {
     privateKeyPem: string
   }): Promise<InvoiceSignatureResult> {
     try {
+      const metadata = getCertificateMetadata(input.certificatePem)
+      assertCertificateMatchesPrivateKey(metadata.certificatePem, input.privateKeyPem)
       const certificate = new Certificate(
-        repairCertificate(input.certificatePem),
+        metadata.certificatePem,
         input.privateKeyPem.trim(),
         ''
       )
+      // Keep XAdES metadata under our control rather than relying on a
+      // dependency's issuer/serial formatting. These values come from the
+      // exact certificate embedded in KeyInfo and used for the signature.
+      certificate.getFormattedIssuer = () => metadata.issuerName
+      certificate.getSerialNumber = () => metadata.serialNumber
       const signer = SdkInvoiceSigner.signInvoice(input.xml, certificate)
       // Some upstream signing libraries inject a root-level `Id="..."` attribute
       // on the `<Invoice>` / `<CreditNote>` element so the enveloped signature
