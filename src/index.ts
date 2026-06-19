@@ -9,6 +9,7 @@ export { buildZatcaInvoice } from './mappers/canonical'
 export { CsrGenerator } from './onboarding/CsrGenerator'
 export { OnboardingService } from './onboarding/OnboardingService'
 export { QrCodeGenerator } from './qr/QrCodeGenerator'
+export { rewriteZatcaQrTagNumbers } from './qr/QrTagRewriter'
 export { GENESIS_INVOICE_HASH, INVOICE_SUBTYPES, INVOICE_TYPES, ZATCA_ENDPOINTS } from './constants'
 export {
   assertCertificateMatchesPrivateKey,
