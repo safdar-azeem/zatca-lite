@@ -176,8 +176,17 @@ export interface ZatcaLiteStores {
   lockProvider?: LockProvider
 }
 
+export interface SignedInvoiceValidator {
+  validate(signedXml: string): Promise<void>
+}
+
+export interface ZatcaLiteValidators {
+  signedInvoice?: SignedInvoiceValidator
+}
+
 export interface ZatcaLiteOptions {
   stores?: ZatcaLiteStores
+  validators?: ZatcaLiteValidators
   logger?: ZatcaLogger
 }
 
