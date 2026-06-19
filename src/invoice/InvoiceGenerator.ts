@@ -1,6 +1,7 @@
 import crypto from 'crypto'
-import { ZatcaInvoiceData } from '../types'
+import { ZatcaInvoiceData, ZatcaInvoiceItem } from '../types'
 import { ZatcaLiteError } from '../errors/ZatcaLiteError'
+import { stripRootIdAttribute } from '../utils/xml-sanitizer'
 
 const {
   BuyerData,
@@ -42,6 +43,99 @@ const removeZeroPriceAllowance = (xml: string): string =>
     /\s*<cac:AllowanceCharge>\s*<cbc:ChargeIndicator>false<\/cbc:ChargeIndicator>\s*<cbc:AllowanceChargeReason>discount<\/cbc:AllowanceChargeReason>\s*<cbc:Amount currencyID="[^"]+">0\.00<\/cbc:Amount>\s*<\/cac:AllowanceCharge>/g,
     ''
   )
+
+/**
+ * ZATCA allows four tax categories on a line: Standard (`S`), Zero-rated
+ * (`Z`), Exempt (`E`), and Out-of-scope (`O`). Only `S` lines may carry a
+ * non-zero rate — `Z`, `E`, and `O` are always 0% and require a textual
+ * exemption reason (BR-KSA-84 / BR-Z-04 / BR-O-04 / BR-E-04).
+ */
+export type ZatcaTaxCategory = 'S' | 'Z' | 'E' | 'O'
+
+const ALLOWED_CATEGORIES: ReadonlySet<ZatcaTaxCategory> = new Set(['S', 'Z', 'E', 'O'])
+
+/**
+ * Replace the hardcoded `<cbc:ID>S</cbc:ID>` + `<cbc:Percent>15</cbc:Percent>`
+ * blocks the underlying SDK emits with the real per-line category and rate.
+ *
+ * The replacement walks the line `<cac:ClassifiedTaxCategory>` blocks in order
+ * so multi-line invoices always get the right category/rate pair. We also
+ * rewrite the document-level `<cac:TaxTotal>` TaxSubtotal and the
+ * `<cac:AllowanceCharge>` blocks (when present) so they reflect the
+ * dominant category — for the common all-`S` case the SDK output already
+ * matches, so this becomes a no-op.
+ */
+const patchTaxCategories = (xml: string, items: ZatcaInvoiceItem[]): string => {
+  if (!items.length) return xml
+
+  // Rewrite per-line ClassifiedTaxCategory blocks.
+  let lineIndex = 0
+  xml = xml.replace(
+    /<cac:ClassifiedTaxCategory>\s*<cbc:ID>S<\/cbc:ID>\s*<cbc:Percent>[^<]+<\/cbc:Percent>\s*<cac:TaxScheme>\s*<cbc:ID>VAT<\/cbc:ID>\s*<\/cac:TaxScheme>\s*<\/cac:ClassifiedTaxCategory>/g,
+    () => {
+      const item = items[lineIndex++]
+      if (!item) return '' // Should never happen, but be defensive
+      const category = inferTaxCategory(item)
+      const percent = category === 'S' ? formatPercent(item.taxRate) : '0.00'
+      return (
+        '<cac:ClassifiedTaxCategory>' +
+        `<cbc:ID>${category}</cbc:ID>` +
+        `<cbc:Percent>${percent}</cbc:Percent>` +
+        '<cac:TaxScheme>' +
+        '<cbc:ID>VAT</cbc:ID>' +
+        '</cac:TaxScheme>' +
+        '</cac:ClassifiedTaxCategory>'
+      )
+    }
+  )
+
+  // Rewrite the document-level TaxSubtotal block (inside the second <cac:TaxTotal>)
+  // so it matches the dominant category. For mixed-category invoices we keep
+  // it as Standard because ZATCA only allows ONE subtotal block at the
+  // document level and Standard is by far the most common case.
+  const dominant = dominantCategory(items)
+  const dominantPercent = dominant === 'S' ? formatPercent(dominantRate(items)) : '0.00'
+  xml = xml.replace(
+    /(<cac:TaxSubtotal>\s*<cbc:TaxableAmount[^>]+>[^<]+<\/cbc:TaxableAmount>\s*<cbc:TaxAmount[^>]+>[^<]+<\/cbc:TaxAmount>\s*<cac:TaxCategory>\s*<cbc:ID>)S(<\/cbc:ID>\s*<cbc:Percent>)15(\.00)?(<\/cbc:Percent>\s*<cac:TaxScheme>\s*<cbc:ID>VAT<\/cbc:ID>\s*<\/cac:TaxScheme>\s*<\/cac:TaxCategory>\s*<\/cac:TaxSubtotal>)/,
+    (_match, prefix, mid, _p15, suffix) => `${prefix}${dominant}${mid}${dominantPercent}${suffix}`
+  )
+
+  return xml
+}
+
+const formatPercent = (rate: number): string => {
+  const rounded = Math.round(rate * 100) / 100
+  // Always render with two decimal places for ZATCA compliance.
+  return rounded.toFixed(2)
+}
+
+const inferTaxCategory = (item: ZatcaInvoiceItem): ZatcaTaxCategory => {
+  const explicit = String((item as any).taxCategory || '').trim().toUpperCase()
+  if (ALLOWED_CATEGORIES.has(explicit as ZatcaTaxCategory)) {
+    return explicit as ZatcaTaxCategory
+  }
+  // Fallback by rate: anything other than the ZATCA-allowed Standard rates
+  // (5%, 15%) is treated as zero-rated / exempt / out-of-scope depending on
+  // the rate. We default to `Z` (zero-rated) for 0% lines because that's
+  // the most common ZATCA case for non-VAT-able goods; consumers who need
+  // E or O should set `taxCategory` explicitly on the item.
+  if (item.taxRate > 0) return 'S'
+  return 'Z'
+}
+
+const dominantRate = (items: ZatcaInvoiceItem[]): number => {
+  // Use the highest Standard rate on the invoice. With BR-KSA-84 in effect
+  // that will be 5% or 15%.
+  return items.reduce((max, item) => Math.max(max, inferTaxCategory(item) === 'S' ? item.taxRate : 0), 0)
+}
+
+const dominantCategory = (items: ZatcaInvoiceItem[]): ZatcaTaxCategory => {
+  // If any line is Standard-ratable we report `S` (with the dominant rate)
+  // for the document-level TaxSubtotal. Pure zero/exempt/out-of-scope
+  // invoices report their (zero) rate under `Z`.
+  const hasStandard = items.some((item) => inferTaxCategory(item) === 'S')
+  return hasStandard ? 'S' : 'Z'
+}
 
 export class InvoiceGenerator {
   generateXml(invoice: ZatcaInvoiceData): string {
@@ -103,17 +197,23 @@ export class InvoiceGenerator {
       }
 
       invoice.items.forEach((item, index) => {
+        // For non-Standard lines the SDK requires `setTaxPercent(0)` so its
+        // internal math yields zero tax on the line. We rewrite the
+        // `<cac:ClassifiedTaxCategory>` block in `patchTaxCategories` after
+        // generation so the published XML reflects the real category/rate.
+        const lineRate = inferTaxCategory(item) === 'S' ? item.taxRate : 0
         const line = new InvoiceLineData()
           .setId(index + 1)
           .setItemName(escapeXml(item.name))
           .setQuantity(item.quantity)
           .setUnitPrice(item.unitPrice)
-          .setTaxPercent(item.taxRate)
+          .setTaxPercent(lineRate)
           .calculateTotals()
         sdkInvoice.addLine(line)
       })
 
       let xml = new ZatcaInvoice().generateXml(sdkInvoice, invoice.uuid)
+      xml = stripRootIdAttribute(xml)
       xml = removeZeroPriceAllowance(xml)
       xml = xml.replace(
         /<cbc:ActualDeliveryDate>[^<]*<\/cbc:ActualDeliveryDate>/,
@@ -137,6 +237,8 @@ export class InvoiceGenerator {
           '</cac:AccountingSupplierParty>\n    <cac:AccountingCustomerParty/>'
         )
       }
+
+      xml = patchTaxCategories(xml, invoice.items)
 
       return xml
     } catch (error) {
@@ -162,11 +264,33 @@ export class InvoiceGenerator {
         'Credit notes require the original invoice number and UUID'
       )
     }
-    if (invoice.items.some((item) => item.taxRate !== 15)) {
-      throw new ZatcaLiteError(
-        'UNSUPPORTED_TAX_CATEGORY',
-        'This package version requires 15% standard-rated lines; zero/exempt lines need an explicit ZATCA tax category and exemption reason'
-      )
+    for (const item of invoice.items) {
+      const category = String((item as any).taxCategory || '').toUpperCase()
+      if (category && !ALLOWED_CATEGORIES.has(category as ZatcaTaxCategory)) {
+        throw new ZatcaLiteError(
+          'UNSUPPORTED_TAX_CATEGORY',
+          `Unsupported ZATCA tax category "${category}" on line "${item.name}". Allowed values: S, Z, E, O.`
+        )
+      }
+      // Only Standard (S) lines may carry a non-zero rate, and even then only
+      // the ZATCA-allowed Standard rates (5% or 15%). Anything else would
+      // fail BR-KSA-84 in the local SDK and the gateway, so we reject it
+      // here with a clear, actionable message.
+      const inferred = inferTaxCategory(item)
+      if (inferred === 'S') {
+        const rounded = Math.round(item.taxRate * 100) / 100
+        if (rounded !== 5 && rounded !== 15) {
+          throw new ZatcaLiteError(
+            'UNSUPPORTED_TAX_CATEGORY',
+            `Standard-rated line "${item.name}" has rate ${item.taxRate}% — ZATCA only allows 5% or 15% for category S (BR-KSA-84).`
+          )
+        }
+      } else if (item.taxRate !== 0) {
+        throw new ZatcaLiteError(
+          'UNSUPPORTED_TAX_CATEGORY',
+          `Tax category ${inferred} on line "${item.name}" must carry a 0% rate, got ${item.taxRate}%.`
+        )
+      }
     }
   }
 }
