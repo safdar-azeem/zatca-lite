@@ -89,10 +89,7 @@ export function getCertificateMetadata(certificate: string): CertificateMetadata
 }
 
 /** Fail before signing when onboarding stored a key from a different CSR. */
-export function assertCertificateMatchesPrivateKey(
-  certificate: string,
-  privateKey: string
-): void {
+export function assertCertificateMatchesPrivateKey(certificate: string, privateKey: string): void {
   const x509 = new X509Certificate(repairCertificate(certificate))
   const certificatePublicKey = x509.publicKey.export({ type: 'spki', format: 'der' })
   const privateKeyPublicKey = crypto
