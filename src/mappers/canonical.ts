@@ -16,7 +16,7 @@ function normalizeItem(item: BuildInvoiceInput['items'][number]): ZatcaInvoiceIt
     (totalIncludesTax ? (totalAmount * taxRate) / (100 + taxRate) : (totalAmount * taxRate) / 100)
   const unitPrice = item.unitPrice ?? (totalAmount - taxAmount) / quantity
 
-  return {
+  const normalized: ZatcaInvoiceItem = {
     name: item.name,
     quantity,
     unitPrice: roundMoney(unitPrice),
@@ -24,6 +24,10 @@ function normalizeItem(item: BuildInvoiceInput['items'][number]): ZatcaInvoiceIt
     taxAmount: roundMoney(taxAmount),
     totalAmount: roundMoney(totalAmount),
   }
+  if ((item as any).taxCategory) {
+    ;(normalized as any).taxCategory = (item as any).taxCategory
+  }
+  return normalized
 }
 
 export function buildZatcaInvoice(input: BuildInvoiceInput): ZatcaInvoiceData {
