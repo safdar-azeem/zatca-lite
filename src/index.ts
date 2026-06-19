@@ -10,6 +10,10 @@ export { CsrGenerator } from './onboarding/CsrGenerator'
 export { OnboardingService } from './onboarding/OnboardingService'
 export { QrCodeGenerator } from './qr/QrCodeGenerator'
 export { GENESIS_INVOICE_HASH, INVOICE_SUBTYPES, INVOICE_TYPES, ZATCA_ENDPOINTS } from './constants'
-export { repairCertificate } from './utils/certificate'
+export {
+  assertCertificateMatchesPrivateKey,
+  getCertificateMetadata,
+  repairCertificate,
+} from './utils/certificate'
 export { stripRootIdAttribute } from './utils/xml-sanitizer'
 export * from './types'
