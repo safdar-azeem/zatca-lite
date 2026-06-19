@@ -42,7 +42,11 @@ export class ReportingGateway {
       return {
         requestId: rawResponse.requestID || rawResponse.requestId || '',
         zatcaStatus: status === 'REPORTED' ? 'REPORTED' : 'FAILED',
-        zatcaErrors: errors.length ? errors : status === 'REPORTED' ? [] : ['ZATCA did not report the invoice'],
+        zatcaErrors: errors.length
+          ? errors
+          : status === 'REPORTED'
+            ? []
+            : ['ZATCA did not report the invoice'],
         rawResponse,
       }
     } catch (error) {
@@ -54,6 +58,10 @@ export class ReportingGateway {
     const apiError = error as Error & { getContext?: () => unknown; details?: unknown }
     const context = apiError.getContext?.() || apiError.details
     const details = context ? ` ${JSON.stringify(context)}` : ''
-    return new ZatcaLiteError(code, `${message}: ${apiError.message || String(error)}${details}`, error)
+    return new ZatcaLiteError(
+      code,
+      `${message}: ${apiError.message || String(error)}${details}`,
+      error
+    )
   }
 }
