@@ -1,16 +1,15 @@
 import crypto from 'crypto'
 import { ZatcaInvoiceData } from '../types'
 import { ZatcaLiteError } from '../errors/ZatcaLiteError'
-import {
-  assertCertificateMatchesPrivateKey,
-  getCertificateMetadata,
-} from '../utils/certificate'
+import { assertCertificateMatchesPrivateKey, getCertificateMetadata } from '../utils/certificate'
 import { stripRootIdAttribute } from '../utils/xml-sanitizer'
 import { rewriteZatcaQrTagNumbers } from '../qr/QrTagRewriter'
 
-const { Certificate, InvoiceExtension, InvoiceSigner: SdkInvoiceSigner } = require(
-  '@khaledhajsalem/zatca-node'
-)
+const {
+  Certificate,
+  InvoiceExtension,
+  InvoiceSigner: SdkInvoiceSigner,
+} = require('@khaledhajsalem/zatca-node')
 
 export interface InvoiceSignatureResult {
   signedXml: string
@@ -28,7 +27,11 @@ export class InvoiceSigner {
       return crypto.createHash('sha256').update(xmlDom.canonicalize()).digest('base64')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      throw new ZatcaLiteError('HASH_CALCULATION_FAILED', `Hash calculation failed: ${message}`, error)
+      throw new ZatcaLiteError(
+        'HASH_CALCULATION_FAILED',
+        `Hash calculation failed: ${message}`,
+        error
+      )
     }
   }
 
@@ -42,11 +45,7 @@ export class InvoiceSigner {
     try {
       const metadata = getCertificateMetadata(input.certificatePem)
       assertCertificateMatchesPrivateKey(metadata.certificatePem, input.privateKeyPem)
-      const certificate = new Certificate(
-        metadata.certificatePem,
-        input.privateKeyPem.trim(),
-        ''
-      )
+      const certificate = new Certificate(metadata.certificatePem, input.privateKeyPem.trim(), '')
       // Keep XAdES metadata under our control rather than relying on a
       // dependency's issuer/serial formatting. These values come from the
       // exact certificate embedded in KeyInfo and used for the signature.
@@ -71,7 +70,11 @@ export class InvoiceSigner {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      throw new ZatcaLiteError('INVOICE_SIGNING_FAILED', `Invoice signing failed: ${message}`, error)
+      throw new ZatcaLiteError(
+        'INVOICE_SIGNING_FAILED',
+        `Invoice signing failed: ${message}`,
+        error
+      )
     }
   }
 
