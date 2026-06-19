@@ -119,8 +119,7 @@ export class ZatcaLite {
         (await this.options.stores?.invoiceStateStore?.getNextInvoiceCounter?.(
           input.tenantId,
           input.invoiceId
-        )) ||
-        input.invoice.invoiceCounter
+        )) || input.invoice.invoiceCounter
 
       const invoice = {
         ...input.invoice,
