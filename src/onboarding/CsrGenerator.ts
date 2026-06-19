@@ -88,7 +88,11 @@ export class CsrGenerator {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      throw new ZatcaLiteError('CSR_GENERATION_FAILED', `OpenSSL CSR generation failed: ${message}`, error)
+      throw new ZatcaLiteError(
+        'CSR_GENERATION_FAILED',
+        `OpenSSL CSR generation failed: ${message}`,
+        error
+      )
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
     }
