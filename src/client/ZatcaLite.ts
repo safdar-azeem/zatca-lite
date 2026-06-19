@@ -129,6 +129,9 @@ export class ZatcaLite {
       }
 
       const signed = await this.signInvoice({ invoice, config })
+      // Run consumers such as the official local SDK against the final signed
+      // XML before any reporting/clearance request leaves the process.
+      await this.options.validators?.signedInvoice?.validate(signed.signedXml)
       const submission =
         input.submissionType === 'clearance'
           ? await this.clearInvoice({ invoice, config, signedXml: signed.signedXml })
