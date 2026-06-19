@@ -26,7 +26,10 @@ const deriveNumericCounter = (invoice: ZatcaInvoiceData): string => {
   if (invoice.invoiceCounter != null) {
     const counter = String(invoice.invoiceCounter).trim()
     if (!/^\d+$/.test(counter) || BigInt(counter) < 1n) {
-      throw new ZatcaLiteError('INVALID_INVOICE_COUNTER', 'Invoice counter must be a positive integer')
+      throw new ZatcaLiteError(
+        'INVALID_INVOICE_COUNTER',
+        'Invoice counter must be a positive integer'
+      )
     }
     return counter
   }
@@ -34,7 +37,11 @@ const deriveNumericCounter = (invoice: ZatcaInvoiceData): string => {
   const uuidHex = invoice.uuid.replace(/[^a-fA-F0-9]/g, '').slice(0, 15)
   if (uuidHex) return BigInt(`0x${uuidHex}`).toString(10)
 
-  const digest = crypto.createHash('sha256').update(invoice.invoiceNumber).digest('hex').slice(0, 15)
+  const digest = crypto
+    .createHash('sha256')
+    .update(invoice.invoiceNumber)
+    .digest('hex')
+    .slice(0, 15)
   return BigInt(`0x${digest}`).toString(10)
 }
 
@@ -110,7 +117,9 @@ const formatPercent = (rate: number): string => {
 }
 
 const inferTaxCategory = (item: ZatcaInvoiceItem): ZatcaTaxCategory => {
-  const explicit = String((item as any).taxCategory || '').trim().toUpperCase()
+  const explicit = String((item as any).taxCategory || '')
+    .trim()
+    .toUpperCase()
   if (ALLOWED_CATEGORIES.has(explicit as ZatcaTaxCategory)) {
     return explicit as ZatcaTaxCategory
   }
@@ -126,7 +135,10 @@ const inferTaxCategory = (item: ZatcaInvoiceItem): ZatcaTaxCategory => {
 const dominantRate = (items: ZatcaInvoiceItem[]): number => {
   // Use the highest Standard rate on the invoice. With BR-KSA-84 in effect
   // that will be 5% or 15%.
-  return items.reduce((max, item) => Math.max(max, inferTaxCategory(item) === 'S' ? item.taxRate : 0), 0)
+  return items.reduce(
+    (max, item) => Math.max(max, inferTaxCategory(item) === 'S' ? item.taxRate : 0),
+    0
+  )
 }
 
 const dominantCategory = (items: ZatcaInvoiceItem[]): ZatcaTaxCategory => {
@@ -221,7 +233,8 @@ export class InvoiceGenerator {
       )
       let countrySubentityIndex = 0
       xml = xml.replace(/<cbc:CountrySubentity>[^<]*<\/cbc:CountrySubentity>/g, () => {
-        const value = countrySubentityIndex++ === 0 ? invoice.supplierRegion : invoice.customerRegion
+        const value =
+          countrySubentityIndex++ === 0 ? invoice.supplierRegion : invoice.customerRegion
         return `<cbc:CountrySubentity>${escapeXml(value || '')}</cbc:CountrySubentity>`
       })
       if (invoice.invoiceSubtype !== '0200000' && !invoice.customerRegistrationNumber) {
@@ -258,7 +271,10 @@ export class InvoiceGenerator {
         'Seller registration number and ZATCA identification scheme are required'
       )
     }
-    if (invoice.invoiceType === '381' && (!invoice.originalInvoiceNumber || !invoice.originalInvoiceUUID)) {
+    if (
+      invoice.invoiceType === '381' &&
+      (!invoice.originalInvoiceNumber || !invoice.originalInvoiceUUID)
+    ) {
       throw new ZatcaLiteError(
         'CREDIT_NOTE_REFERENCE_REQUIRED',
         'Credit notes require the original invoice number and UUID'
