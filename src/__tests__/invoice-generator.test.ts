@@ -43,6 +43,25 @@ const standardItems = [
 const generator = new InvoiceGenerator()
 
 describe('InvoiceGenerator', () => {
+  it('emits the KSA self-billing transaction flag and visible statement', () => {
+    const invoice = buildZatcaInvoice({
+      invoiceNumber: 'INV-SELF-1',
+      seller,
+      buyer: {
+        ...seller,
+        name: 'Enterprise Buyer LLC',
+        taxNumber: '310000000000003',
+        registrationNumber: '1020010000',
+      },
+      items: standardItems,
+      invoiceSubtype: '0100001',
+      invoiceType: '388',
+    })
+    const xml = generator.generateXml(invoice)
+    expect(xml).toContain('<cbc:InvoiceTypeCode name="0100001">388</cbc:InvoiceTypeCode>')
+    expect(xml).toContain('Self-billed Invoice - issued by the customer on behalf of the supplier')
+  })
+
   it('emits a root <Invoice> element without an Id attribute', () => {
     const invoice = buildZatcaInvoice({
       invoiceNumber: 'INV-1',
