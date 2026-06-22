@@ -2,7 +2,9 @@ export type ZatcaEnv = 'sandbox' | 'simulation' | 'production'
 
 export type ZatcaInvoiceType = '388' | '381'
 
-export type ZatcaInvoiceSubtype = '0100000' | '0200000'
+// KSA-2 position 7 is the self-billing flag. Self-billing is only valid for
+// standard tax invoices, hence 0100001 (never a simplified 0200001 flow).
+export type ZatcaInvoiceSubtype = '0100000' | '0200000' | '0100001'
 
 export type ZatcaSubmissionStatus = 'REPORTED' | 'CLEARED' | 'FAILED' | 'SUBMITTED' | 'PENDING'
 
