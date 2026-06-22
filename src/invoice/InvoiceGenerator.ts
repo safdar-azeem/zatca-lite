@@ -226,6 +226,16 @@ export class InvoiceGenerator {
 
       let xml = new ZatcaInvoice().generateXml(sdkInvoice, invoice.uuid)
       xml = stripRootIdAttribute(xml)
+      if (invoice.invoiceSubtype === '0100001') {
+        xml = xml.replace(
+          /(<cbc:InvoiceTypeCode name=")0100000(">)/,
+          (_match: string, prefix: string, suffix: string) => `${prefix}0100001${suffix}`
+        )
+        xml = xml.replace(
+          /(<cbc:InvoiceTypeCode[^>]*>[^<]*<\/cbc:InvoiceTypeCode>)/,
+          '$1\n    <cbc:Note>Self-billed Invoice - issued by the customer on behalf of the supplier</cbc:Note>'
+        )
+      }
       xml = removeZeroPriceAllowance(xml)
       xml = xml.replace(
         /<cbc:ActualDeliveryDate>[^<]*<\/cbc:ActualDeliveryDate>/,
@@ -269,6 +279,12 @@ export class InvoiceGenerator {
       throw new ZatcaLiteError(
         'SELLER_REGISTRATION_REQUIRED',
         'Seller registration number and ZATCA identification scheme are required'
+      )
+    }
+    if (invoice.invoiceSubtype === '0100001' && !invoice.customerTaxNumber) {
+      throw new ZatcaLiteError(
+        'SELF_BILLING_BUYER_VAT_REQUIRED',
+        'Self-billed invoices require a VAT-registered buyer'
       )
     }
     if (
