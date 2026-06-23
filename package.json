@@ -1,6 +1,6 @@
 {
   "name": "zatca-lite",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "ZATCA Phase 2 onboarding, signing, QR, reporting, and clearance toolkit for Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
